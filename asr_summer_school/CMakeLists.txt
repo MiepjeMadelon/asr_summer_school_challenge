@@ -7,11 +7,48 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
-install(DIRECTORY launch config
+add_library(frontier_detection
+  src/frontier_detection.cpp
+)
+target_include_directories(frontier_detection PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+ament_target_dependencies(frontier_detection
+  rclcpp
+  nav_msgs
+  geometry_msgs
+  visualization_msgs
+)
+set_target_properties(frontier_detection PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+add_library(frontier_detection_node SHARED
+  src/frontier_detection_node.cpp
+)
+target_link_libraries(frontier_detection_node frontier_detection)
+ament_target_dependencies(frontier_detection_node rclcpp rclcpp_components nav_msgs visualization_msgs)
+rclcpp_components_register_node(frontier_detection_node
+  PLUGIN "FrontierDetectionNode"
+  EXECUTABLE frontier_detection_node_exe
+)
+
+install(TARGETS frontier_detection frontier_detection_node
+  EXPORT export_frontier_detection
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+install(DIRECTORY include/
+  DESTINATION include
+)
+
+install(DIRECTORY launch config test
   DESTINATION share/${PROJECT_NAME}/
 )
 
