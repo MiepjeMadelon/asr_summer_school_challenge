@@ -32,7 +32,7 @@ add_library(frontier_detection_node SHARED
   src/frontier_detection_node.cpp
 )
 target_link_libraries(frontier_detection_node frontier_detection)
-ament_target_dependencies(frontier_detection_node rclcpp rclcpp_components nav_msgs visualization_msgs)
+ament_target_dependencies(frontier_detection_node rclcpp rclcpp_components nav_msgs geometry_msgs visualization_msgs)
 rclcpp_components_register_node(frontier_detection_node
   PLUGIN "FrontierDetectionNode"
   EXECUTABLE frontier_detection_node_exe

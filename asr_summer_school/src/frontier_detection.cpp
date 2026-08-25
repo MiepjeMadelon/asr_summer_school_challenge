@@ -140,12 +140,85 @@ std::vector<std::pair<double, double>> compute_centroids(
 namespace frontier_detection
 {
 
+nav_msgs::msg::OccupancyGrid preprocess_frontier_cells(
+  const nav_msgs::msg::OccupancyGrid & map_grid,
+  double robot_world_x,
+  double robot_world_y,
+  double active_area_radius)
+{
+  const int width_cells  = static_cast<int>(map_grid.info.width);
+  const int height_cells = static_cast<int>(map_grid.info.height);
+  const double res       = map_grid.info.resolution;
+
+  const int rx = static_cast<int>((robot_world_x - map_grid.info.origin.position.x) / res);
+  const int ry = static_cast<int>((robot_world_y - map_grid.info.origin.position.y) / res);
+
+  nav_msgs::msg::OccupancyGrid frontier_grid = map_grid;
+  std::fill(frontier_grid.data.begin(), frontier_grid.data.end(), -1);
+
+  if (rx < 0 || rx >= width_cells || ry < 0 || ry >= height_cells)
+    return frontier_grid;
+
+  const int dx_table[4] = {0, 1, 0, -1};
+  const int dy_table[4] = {1, 0, -1, 0};
+  const double sq_radius = active_area_radius * active_area_radius;
+
+  std::vector<bool> visited(static_cast<size_t>(width_cells * height_cells), false);
+  std::queue<int> queue;
+  const int robot_index = ry * width_cells + rx;
+  queue.push(robot_index);
+  visited[robot_index] = true;
+
+  while (!queue.empty()) {
+    const int index = queue.front();
+    queue.pop();
+
+    if (map_grid.data[index] != 0)
+      continue;
+
+    const int x = index % width_cells;
+    const int y = index / width_cells;
+    bool is_frontier = false;
+
+    for (int i = 0; i < 4; ++i) {
+      const int nx = x + dx_table[i];
+      const int ny = y + dy_table[i];
+
+      if (nx < 0 || nx >= width_cells || ny < 0 || ny >= height_cells)
+        continue;
+
+      const int nindex = ny * width_cells + nx;
+      if (visited[nindex])
+        continue;
+
+      const double nx_dist = (nx - rx) * res;
+      const double ny_dist = (ny - ry) * res;
+      if (nx_dist * nx_dist + ny_dist * ny_dist > sq_radius)
+        continue;
+
+      if (map_grid.data[nindex] == -1) {
+        is_frontier = true;
+      } else if (map_grid.data[nindex] == 0) {
+        queue.push(nindex);
+        visited[nindex] = true;
+      }
+    }
+
+    frontier_grid.data[index] = is_frontier ? 100 : -1;
+  }
+
+  return frontier_grid;
+}
+
 std::vector<std::pair<double, double>> detect_frontiers(
   const nav_msgs::msg::OccupancyGrid & grid,
-  const Params & params)
+  const Params & params,
+  double robot_x,
+  double robot_y)
 {
-  auto clusters = dbscan(grid, params);
-  return compute_centroids(grid, clusters, params.min_frontier_size);
+  auto frontier_grid = preprocess_frontier_cells(grid, robot_x, robot_y, params.active_area_radius);
+  auto clusters = dbscan(frontier_grid, params);
+  return compute_centroids(frontier_grid, clusters, params.min_frontier_size);
 }
 
 void publish_frontiers_marker(

@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
+from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import PathJoinSubstitution
@@ -46,11 +47,27 @@ def generate_launch_description():
 		)
 	)
 
+	frontier_detection = Node(
+		package='asr_summer_school',
+		executable='frontier_detection_node_exe',
+		name='frontier_detection_node',
+		output='screen',
+		parameters=[{
+			'map_topic': 'map',
+			'pose_topic': 'pose',
+			'epsilon': 0.5,
+			'min_points': 3,
+			'min_frontier_size': 20,
+			'active_area_radius': 10.0
+		}]
+	)
+
 	return LaunchDescription([
 		robot_bringup,
 		slam_toolbox,
 		teleop,
 		camera,
 		apriltag,
+		frontier_detection
 	])
 
