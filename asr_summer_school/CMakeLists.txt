@@ -56,9 +56,11 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY launch config test
+install(DIRECTORY launch config test worlds models
   DESTINATION share/${PROJECT_NAME}/
 )
+
+ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/${PROJECT_NAME}.dsv.in")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

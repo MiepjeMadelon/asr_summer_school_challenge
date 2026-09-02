@@ -27,7 +27,7 @@ def main():
     # navigator.lifecycleStartup()
 
     # Wait for navigation to fully activate, since autostarting nav2
-    navigator.waitUntilNav2Active(localizer='slam_toolbox')
+    navigator.waitUntilNav2Active(localizer='controller_server')
 
     # If desired, you can change or load the map as well
     # navigator.changeMap('/path/to/map.yaml')
