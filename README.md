@@ -25,19 +25,20 @@ The final task is a fixed-time challenge: **find the largest possible number of 
 
 ## Repository contents
 
-The ROS 2 workspace contains the following main packages:
+The ROS 2 workspace contains the following packages and support resources:
 
 ```text
-ws/src/
-├── asr_summer_school/       # Laboratory bringup, launch, and configuration
-├── laser_filters/           # LiDAR filtering package
-├── turtlebot3_perception/   # RGB-D camera, AprilTag, and landmark support
-└── README.md
+src/asr_summer_school_challenge/
+├── apriltag-imgs/           # AprilTag families and tag-to-SVG utility
+├── asr_summer_school/       # Bringup, autonomy, launch, and configuration
+├── laser_filters/            # LiDAR filtering package
+├── turtlebot3_perception/    # Camera, AprilTag, and landmark support
+└── turtlebot3_simulations/   # Fake node, Gazebo, and Ignition simulation
 ```
 
 ### `asr_summer_school`
 
-`asr_summer_school` is an `ament_cmake` ROS 2 package that collects the launch files and parameter sets used to operate the robot during the laboratory. Its `CMakeLists.txt` installs the `launch/` and `config/` directories into the package share directory.
+`asr_summer_school` is an `ament_cmake_python` ROS 2 package that collects the launch files, parameter sets, autonomy nodes, Python utilities, tests, and simulation assets used during the laboratory. Its `CMakeLists.txt` installs the `launch/` and `config/` directories into the package share directory.
 
 ```text
 asr_summer_school/
@@ -48,21 +49,35 @@ asr_summer_school/
 │   ├── param_slam_toolbox.yaml
 │   └── param_teleop.yaml
 ├── include/asr_summer_school/
+│   └── frontier_detection.h
 ├── launch/
 │   ├── bringup.launch.py
+│   ├── bringup_simulation.launch.py
 │   ├── nav2.launch.py
+│   ├── project.launch.py
 │   ├── slam_toolbox.launch.py
 │   └── teleop.launch.py
-└── src/
+├── src/
+│   ├── frontier_detection.cpp
+│   └── frontier_detection_node.cpp
+├── asr_summer_school/
+│   ├── example_nav_to_pose.py
+│   └── sensor_monitor.py
+├── scripts/generate_apriltag_maze.py
+├── test/frontier_detection_test.launch.py
+├── models/
+└── worlds/
 ```
 
-The package currently contains configuration and orchestration files; the `include/` and `src/` directories are available for code developed during the laboratory.
+The package includes frontier detection, navigation and sensor-monitoring examples, an AprilTag maze generator, and Gazebo models and worlds for simulation.
 
 #### Launch files
 
 - `bringup.launch.py` starts the TurtleBot3 base, SLAM, joystick teleoperation,  RGB-D camera, and AprilTag detector as one integrated system.
+- `bringup_simulation.launch.py` starts the corresponding simulation bringup.
 - `slam_toolbox.launch.py` starts asynchronous `slam_toolbox`, manages its lifecycle, and inserts a `laser_filters` scan-to-scan filter before SLAM.
 - `nav2.launch.py` starts the Nav2 navigation stack. It supports mapping or localization, namespaces, composition, respawning, simulation time, and a custom parameter file.
+- `project.launch.py` starts the project-specific laboratory configuration.
 - `teleop.launch.py` starts `joy_linux` and `teleop_twist_joy`, allowing the TurtleBot3 to be driven with a game controller.
 
 #### Configuration files
@@ -71,9 +86,14 @@ The package currently contains configuration and orchestration files; the `inclu
 - `param_nav2.yaml` configures localization, behavior-tree navigation, controller and planner servers, costmaps, obstacle processing, recovery behaviors, and velocity limits for the TurtleBot3.
 - `param_teleop.yaml` defines the joystick axes, enable button, and linear and angular velocity scales.
 
+The package also contains `frontier_detection`, its ROS 2 node entry point, Python examples for navigation and sensor monitoring, and a launch test for frontier detection.
+
 ### Supporting packages
 
 - `laser_filters` provides the filter chain used to preprocess LiDAR scans. In the supplied SLAM configuration, scans are binned and published on `/scan_filtered` before being consumed by `slam_toolbox`.
-- `turtlebot3_perception` provides the camera and AprilTag launch support used by the main bringup file. It also contains `landmark_msgs`, which defines messages for representing detected landmarks.
+- `turtlebot3_perception` provides the camera and AprilTag launch support used by the main bringup file. Its configuration includes AprilTag, landmark, OAK-D, and RViz settings, and its Python nodes convert detections to landmarks, simulate landmarks, and process laser scans into lines.
+- `landmark_msgs` defines `Landmark` and `LandmarkArray` messages for representing detected landmarks.
+- `turtlebot3_simulations` provides the TurtleBot3 fake node and Gazebo simulation packages. The source tree also includes an Ignition simulation package, currently marked with `COLCON_IGNORE`.
+- `apriltag-imgs` contains the supported AprilTag families and the `tag_to_svg.py` conversion utility.
 
 The current package supplies the robot bringup, mapping, navigation, teleoperation, and perception foundations. The autonomous exploration policy, unique-tag management, transformation and storage of detections in the map frame, semantic-map export, and timed return-to-start behavior are the main components to be developed as part of the challenge.
