@@ -5,6 +5,9 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
 from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 
+import os
+from ament_index_python.packages import get_package_share_directory
+
 
 def generate_launch_description():
 	use_sim_time = LaunchConfiguration("use_sim_time", default="true")
@@ -27,13 +30,17 @@ def generate_launch_description():
 		launch_arguments={'use_sim_time': use_sim_time}.items()
 	)
 
-	apriltag = IncludeLaunchDescription(
-		PythonLaunchDescriptionSource(
-			PathJoinSubstitution(
-				[FindPackageShare('turtlebot3_perception'), 'launch', 'apriltag.launch.py']
-			)
-		),
-		launch_arguments={'use_sim_time': use_sim_time}.items()
+	apriltag = Node(
+		package='apriltag_ros',
+		executable='apriltag_node',
+		namespace='/camera',
+		name='apriltag',
+		output='screen',
+		parameters=[
+			{'use_sim_time': use_sim_time},
+			os.path.join(get_package_share_directory('turtlebot3_perception'), "config", "apriltag.yaml"
+    )],
+		remappings=[('image_rect', 'image_raw')]
 	)
 
 	frontier_detection = Node(
