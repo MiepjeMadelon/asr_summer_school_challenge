@@ -38,6 +38,14 @@ rclcpp_components_register_node(frontier_detection_node
   EXECUTABLE frontier_detection_node_exe
 )
 
+ament_python_install_package(${PROJECT_NAME})
+
+install(PROGRAMS
+  ${PROJECT_NAME}/example_nav_to_pose.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+
 install(TARGETS frontier_detection frontier_detection_node
   EXPORT export_frontier_detection
   ARCHIVE DESTINATION lib
@@ -48,9 +56,11 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY launch config test
+install(DIRECTORY launch config test worlds models
   DESTINATION share/${PROJECT_NAME}/
 )
+
+ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/${PROJECT_NAME}.dsv.in")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

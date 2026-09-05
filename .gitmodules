@@ -4,3 +4,9 @@
 [submodule "turtlebot3_perception"]
 	path = turtlebot3_perception
 	url = https://github.com/SESASR-Course/turtlebot3_perception.git
+[submodule "apriltag-imgs"]
+	path = apriltag-imgs
+	url = https://github.com/AprilRobotics/apriltag-imgs.git
+[submodule "turtlebot3_simulations"]
+	path = turtlebot3_simulations
+	url = https://github.com/SESASR-Course/turtlebot3_simulations.git
