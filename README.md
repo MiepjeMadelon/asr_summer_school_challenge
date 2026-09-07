@@ -55,6 +55,7 @@ asr_summer_school/
 │   ├── bringup_simulation.launch.py
 │   ├── nav2.launch.py
 │   ├── project.launch.py
+│   ├── project_ignition.launch.py
 │   ├── slam_toolbox.launch.py
 │   └── teleop.launch.py
 ├── src/
@@ -77,7 +78,8 @@ The package includes frontier detection, navigation and sensor-monitoring exampl
 - `bringup_simulation.launch.py` starts the corresponding simulation bringup.
 - `slam_toolbox.launch.py` starts asynchronous `slam_toolbox`, manages its lifecycle, and inserts a `laser_filters` scan-to-scan filter before SLAM.
 - `nav2.launch.py` starts the Nav2 navigation stack. It supports mapping or localization, namespaces, composition, respawning, simulation time, and a custom parameter file.
-- `project.launch.py` starts the project-specific laboratory configuration.
+- `project.launch.py` starts the project-specific laboratory configuration in Gazebo Classic, on the `hard_maze_apriltag.world` maze.
+- `project_ignition.launch.py` starts the same maze under Ignition/gz, on `hard_maze_apriltag_ignition.world`. It goes through `turtlebot3_ignition`, so remove that package's `COLCON_IGNORE` and rebuild before using it.
 - `teleop.launch.py` starts `joy_linux` and `teleop_twist_joy`, allowing the TurtleBot3 to be driven with a game controller.
 
 #### Configuration files
@@ -85,6 +87,18 @@ The package includes frontier detection, navigation and sensor-monitoring exampl
 - `param_slam_toolbox.yaml` configures the LiDAR binning filter and `slam_toolbox`, including frames, filtered scan topic, map resolution, scan matching, and loop closure.
 - `param_nav2.yaml` configures localization, behavior-tree navigation, controller and planner servers, costmaps, obstacle processing, recovery behaviors, and velocity limits for the TurtleBot3.
 - `param_teleop.yaml` defines the joystick axes, enable button, and linear and angular velocity scales.
+
+#### Simulation assets
+
+`worlds/` holds the maze in three pieces: `hard_maze_base.world`, the untagged Gazebo Classic maze, and the two tagged worlds built from it, `hard_maze_apriltag.world` for Gazebo Classic and `hard_maze_apriltag_ignition.world` for Ignition/gz. `scripts/generate_apriltag_maze.py` emits both tagged worlds from a single tag placement, so the same tag IDs sit at the same poses whichever simulator is used.
+
+`models/` holds one directory per tag, each serving both simulators:
+
+- `model.sdf` describes the plate with an Ogre material script, which Gazebo Classic renders, after [koide3/gazebo_apriltag](https://github.com/koide3/gazebo_apriltag);
+- `model_gz.sdf` describes it with a PBR albedo map, which Ignition/gz needs since Ogre2 does not read Classic's material scripts, after [rickarmstrong/gazebo_apriltag](https://github.com/rickarmstrong/gazebo_apriltag) (`harmonic` branch);
+- both read the same texture under `materials/textures/`, and `model.config` offers each SDF version so every simulator is handed the file it can parse.
+
+The package environment hook exports `models/` and `worlds/` on `GAZEBO_MODEL_PATH`, `IGN_GAZEBO_RESOURCE_PATH`, and `GZ_SIM_RESOURCE_PATH`, so the tags resolve in either simulator after sourcing the workspace.
 
 The package also contains `frontier_detection`, its ROS 2 node entry point, Python examples for navigation and sensor monitoring, and a launch test for frontier detection.
 

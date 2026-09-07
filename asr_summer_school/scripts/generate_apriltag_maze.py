@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
-"""Build hard_maze_apriltag.world: hard_maze_base.world with AprilTags on its walls.
+"""Build the AprilTag mazes: the base maze worlds with AprilTags on their walls.
+
+Two worlds come out of this, one per simulator, from the same tag placement:
+
+    worlds/hard_maze_apriltag.world            Gazebo Classic, from hard_maze_base.world
+    worlds/hard_maze_apriltag_ignition.world   Ignition/gz, from turtlebot3_ignition's
+                                               worlds/hard_maze.world
 
 Tag models follow the layout of koide3/gazebo_apriltag (https://github.com/koide3/gazebo_apriltag)
-and their textures come from AprilRobotics/apriltag-imgs.
+for Gazebo Classic and of rickarmstrong/gazebo_apriltag (harmonic branch,
+https://github.com/rickarmstrong/gazebo_apriltag) for Ignition/gz; their textures come
+from AprilRobotics/apriltag-imgs. Every model carries both flavours, so the same
+models/ tree serves either simulator (see the emitters section below).
 
-    # regenerate the tag models too (needs opencv + a checkout of apriltag-imgs)
+    # regenerate the tag textures too (needs opencv + a checkout of apriltag-imgs)
     git clone https://github.com/AprilRobotics/apriltag-imgs.git
     ./generate_apriltag_maze.py --apriltag-imgs apriltag-imgs
 
-    # only re-emit the world, reusing the tag models already in models/
+    # only re-emit the models and worlds, reusing the textures already in models/
     ./generate_apriltag_maze.py
 
 Tags are placed only on wall faces that front open space, so a robot driving the
@@ -29,6 +38,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PKG = os.path.dirname(HERE)
 SRC_WORLD = os.path.join(PKG, "worlds", "hard_maze_base.world")
 OUT_WORLD = os.path.join(PKG, "worlds", "hard_maze_apriltag.world")
+# The Ignition/gz maze lives in the turtlebot3_ignition package, a sibling submodule.
+IGN_SRC_WORLD = os.path.join(os.path.dirname(PKG), "turtlebot3_simulations",
+                             "turtlebot3_ignition", "worlds", "hard_maze.world")
+IGN_OUT_WORLD = os.path.join(PKG, "worlds", "hard_maze_apriltag_ignition.world")
 MODELS = os.path.join(PKG, "models")
 
 ARENA = 10.0          # inner face of the border walls, at +-ARENA on both axes
@@ -40,7 +53,8 @@ TAG = 0.16            # detectable tag edge, i.e. what apriltag.yaml's `size` mu
 PLATE = TAG / 0.8     # 0.20 m -- the tag is the inner 8 of the image's 10 cells
 TAG_Z = 0.24          # plate centre at camera height, so tags fill the frame vertically
 STANDOFF = 0.006      # push the plate off the wall face to avoid z-fighting
-N_TAGS = 12           # a sparse set to go and find, not a saturated arena
+N_TAGS = 12           # a sparse set to go and find, not a saturated arena, when
+                      # models/ is empty; otherwise the shipped tags are reused
 MIN_OPEN = 1.0        # only mount where the corridor in front runs at least this far
 VIEW_RANGE = 3.0      # a tag needs VIEW_RANGE * PLATE of clear space in front of it,
                       # so the whole plate is framed from beyond the 0.3 m min range
@@ -176,6 +190,17 @@ def place(boxes, n_tags=N_TAGS):
 
 # ---------------------------------------------------------------- emitters
 
+# Every tag ships in both flavours, so one models/ tree serves either simulator:
+#
+#   model.sdf      Gazebo Classic -- an Ogre material script (koide3/gazebo_apriltag)
+#   model_gz.sdf   Ignition/gz    -- a PBR albedo map (rickarmstrong/gazebo_apriltag,
+#                                    harmonic branch), which Ogre2 needs since it does
+#                                    not read Classic's material scripts
+#
+# Both point at the same texture, and model.config offers each SDF version so
+# sdformat hands every simulator the file it can parse: Classic (sdformat9, up to
+# SDF 1.7) takes model.sdf, Ignition/gz (sdformat12+) takes model_gz.sdf.
+
 MODEL_SDF = """<?xml version='1.0'?>
 <sdf version='1.6'>
   <model name='{name}'>
@@ -201,16 +226,48 @@ MODEL_SDF = """<?xml version='1.0'?>
 </sdf>
 """
 
+MODEL_SDF_GZ = """<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="{name}">
+    <static>true</static>
+    <link name="main">
+      <pose>0 0 0 0 0 0</pose>
+      <visual name="main_Visual">
+        <geometry>
+          <box>
+            <size>1.0 1.0 0.01</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0.5 0.5 0.5 1</specular>
+          <pbr>
+            <metal>
+              <albedo_map>materials/textures/{tag}.png</albedo_map>
+              <roughness>0.5</roughness>
+              <metalness>0.0</metalness>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
+"""
+
 MODEL_CONFIG = """<?xml version="1.0" ?>
 <model>
     <name>{name}</name>
     <version>1.0</version>
     <sdf version="1.6">model.sdf</sdf>
+    <sdf version="1.9">model_gz.sdf</sdf>
     <author>
-        <name>Kenji Koide</name>
-        <email>koide@dei.unipd.it</email>
+        <name>Kenji Koide, Rick Armstrong</name>
+        <email>koide@dei.unipd.it, waitingfortheelectrician@gmail.com</email>
     </author>
-    <description>AprilTag {tag} model, after koide3/gazebo_apriltag.</description>
+    <description>AprilTag {tag} model, after koide3/gazebo_apriltag (model.sdf,
+    Gazebo Classic) and rickarmstrong/gazebo_apriltag (model_gz.sdf, Ignition/gz).</description>
 </model>
 """
 
@@ -232,38 +289,91 @@ MATERIAL = """material {name}
 }}
 """
 
+# The same two material flavours, for plates written inline into a world. The
+# albedo map has to be a model:// URI here: a relative one would resolve against
+# the world file rather than against a model directory.
+MATERIAL_XML = {
+    "classic": """                    <material>
+                        <script>
+                            <uri>model://{name}/materials/scripts</uri>
+                            <uri>model://{name}/materials/textures</uri>
+                            <name>{name}</name>
+                        </script>
+                    </material>
+""",
+    "ignition": """                    <material>
+                        <ambient>1 1 1 1</ambient>
+                        <diffuse>1 1 1 1</diffuse>
+                        <specular>0.5 0.5 0.5 1</specular>
+                        <pbr>
+                            <metal>
+                                <albedo_map>model://{name}/materials/textures/{tag}.png</albedo_map>
+                                <roughness>0.5</roughness>
+                                <metalness>0.0</metalness>
+                            </metal>
+                        </pbr>
+                    </material>
+""",
+}
 
-def generate_models(ids, imgs_dir):
+
+def names(i):
+    """(texture/tag name, model name) of tag id `i`."""
+    tag = "tag36_11_%05d" % i
+    return tag, "April" + tag
+
+
+def texture_path(i):
+    tag, name = names(i)
+    return os.path.join(MODELS, name, "materials", "textures", tag + ".png")
+
+
+def installed_tags():
+    """How many consecutive tag textures models/ already holds."""
+    i = 0
+    while os.path.isfile(texture_path(i)):
+        i += 1
+    return i
+
+
+def generate_textures(ids, imgs_dir):
+    """Redraw the tag textures from a checkout of AprilRobotics/apriltag-imgs."""
     import cv2
     for i in ids:
-        tag = "tag36_11_%05d" % i
-        name = "April" + tag
+        tag, name = names(i)
         src = os.path.join(imgs_dir, "tag36h11", tag + ".png")
         img = cv2.imread(src, 0)
         if img is None:
             raise SystemExit("missing tag image: %s" % src)
         img = cv2.resize(img, (TEXTURE_PX, TEXTURE_PX), interpolation=cv2.INTER_NEAREST)
+        shutil.rmtree(os.path.join(MODELS, name), ignore_errors=True)
+        os.makedirs(os.path.dirname(texture_path(i)))
+        cv2.imwrite(texture_path(i), img)
+    print("wrote %d tag textures to %s" % (len(ids), MODELS))
 
+
+def generate_models(ids):
+    """Model descriptors for both simulators, around the textures already in place."""
+    for i in ids:
+        tag, name = names(i)
         root = os.path.join(MODELS, name)
-        shutil.rmtree(root, ignore_errors=True)
-        os.makedirs(os.path.join(root, "materials", "scripts"))
-        os.makedirs(os.path.join(root, "materials", "textures"))
-        with open(os.path.join(root, "model.sdf"), "w") as f:
-            f.write(MODEL_SDF.format(name=name))
-        with open(os.path.join(root, "model.config"), "w") as f:
-            f.write(MODEL_CONFIG.format(name=name, tag=tag))
-        with open(os.path.join(root, "materials", "scripts", "Apriltag.material"), "w") as f:
-            f.write(MATERIAL.format(name=name, tag=tag))
-        cv2.imwrite(os.path.join(root, "materials", "textures", tag + ".png"), img)
+        os.makedirs(os.path.join(root, "materials", "scripts"), exist_ok=True)
+        for fname, template in (("model.sdf", MODEL_SDF),
+                                ("model_gz.sdf", MODEL_SDF_GZ),
+                                ("model.config", MODEL_CONFIG),
+                                (os.path.join("materials", "scripts", "Apriltag.material"),
+                                 MATERIAL)):
+            with open(os.path.join(root, fname), "w") as f:
+                f.write(template.format(name=name, tag=tag))
     print("wrote %d tag models to %s" % (len(ids), MODELS))
 
 
-def tag_xml(i, spot):
+def tag_xml(i, spot, engine):
     """One wall-mounted plate. Written inline rather than <include>d so the plate
     carries the size this arena needs instead of the shipped model's 1 m."""
     x, y, z, n, _kind = spot
     roll, pitch, yaw = rpy_for(n)
-    name = "Apriltag36_11_%05d" % i
+    tag, name = names(i)
     return """        <model name='{name}'>
             <static>1</static>
             <pose>{x:.3f} {y:.3f} {z:.3f} {r:.6f} {p:.6f} {yw:.6f}</pose>
@@ -275,51 +385,63 @@ def tag_xml(i, spot):
                             <size>{s} {s} 0.005</size>
                         </box>
                     </geometry>
-                    <material>
-                        <script>
-                            <uri>model://{name}/materials/scripts</uri>
-                            <uri>model://{name}/materials/textures</uri>
-                            <name>{name}</name>
-                        </script>
-                    </material>
-                </visual>
+{material}                </visual>
             </link>
         </model>
-""".format(name=name, x=x, y=y, z=z, r=roll, p=pitch, yw=yaw, s=round(PLATE, 4))
+""".format(name=name, x=x, y=y, z=z, r=roll, p=pitch, yw=yaw, s=round(PLATE, 4),
+           material=MATERIAL_XML[engine].format(name=name, tag=tag))
+
+
+def write_world(src, out, spots, engine):
+    """Copy a base maze world, inserting the tag plates before its </world>."""
+    with open(src) as f:
+        base = f.read()
+    tags = "".join(tag_xml(i, s, engine) for i, s in enumerate(spots))
+    block = "\n        <!-- AprilTags (tag36h11), generated by scripts/generate_apriltag_maze.py -->\n" + tags
+    if base.count("</world>") != 1:
+        raise SystemExit("expected exactly one </world> in %s" % src)
+    with open(out, "w") as f:
+        f.write(base.replace("</world>", block + "    </world>"))
+    print("wrote %s (%s)" % (out, engine))
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--apriltag-imgs", metavar="DIR",
-                    help="checkout of AprilRobotics/apriltag-imgs; regenerates the tag models")
-    ap.add_argument("--tags", type=int, default=N_TAGS, metavar="N",
-                    help="how many tags to scatter through the maze (default %d)" % N_TAGS)
+                    help="checkout of AprilRobotics/apriltag-imgs; redraws the tag textures")
+    ap.add_argument("--tags", type=int, metavar="N",
+                    help="how many tags to scatter through the maze; defaults to the number "
+                         "already in models/ (%d, so a plain run reproduces the shipped worlds) "
+                         "or to %d when there are none. Asking for more needs --apriltag-imgs, "
+                         "to draw the textures the extra tags require."
+                         % (installed_tags(), N_TAGS))
+    ap.add_argument("--ignition-base", metavar="WORLD", default=IGN_SRC_WORLD,
+                    help="turtlebot3_ignition maze to tag as well (default %(default)s); "
+                         "skipped when it is missing")
     args = ap.parse_args()
 
     boxes = load_boxes()
-    spots = place(boxes, args.tags)
+    spots = place(boxes, args.tags or installed_tags() or N_TAGS)
     ids = list(range(len(spots)))
 
     if args.apriltag_imgs:
-        generate_models(ids, args.apriltag_imgs)
+        generate_textures(ids, args.apriltag_imgs)
 
-    missing = [i for i in ids if not os.path.isdir(os.path.join(MODELS, "Apriltag36_11_%05d" % i))]
+    missing = [i for i in ids if not os.path.isfile(texture_path(i))]
     if missing:
-        raise SystemExit("no model for tag ids %s; rerun with --apriltag-imgs" % missing)
+        raise SystemExit("no texture for tag ids %s; rerun with --apriltag-imgs" % missing)
+    generate_models(ids)
 
-    with open(SRC_WORLD) as f:
-        base = f.read()
-    tags = "".join(tag_xml(i, s) for i, s in zip(ids, spots))
-    block = "\n        <!-- AprilTags (tag36h11), generated by scripts/generate_apriltag_maze.py -->\n" + tags
-    if base.count("</world>") != 1:
-        raise SystemExit("expected exactly one </world> in %s" % SRC_WORLD)
-    with open(OUT_WORLD, "w") as f:
-        f.write(base.replace("</world>", block + "    </world>"))
+    write_world(SRC_WORLD, OUT_WORLD, spots, "classic")
+    if os.path.isfile(args.ignition_base):
+        write_world(args.ignition_base, IGN_OUT_WORLD, spots, "ignition")
+    else:
+        print("skipped the Ignition world: no %s" % args.ignition_base)
 
     n_border = sum(1 for s in spots if s[4] == "border")
-    print("wrote %s\n  %d tags of %.2f m (%.2f m plates) at z=%.2f -- %d on the border walls, %d on the obstacles"
-          % (OUT_WORLD, len(spots), TAG, PLATE, TAG_Z, n_border, len(spots) - n_border))
+    print("  %d tags of %.2f m (%.2f m plates) at z=%.2f -- %d on the border walls, %d on the obstacles"
+          % (len(spots), TAG, PLATE, TAG_Z, n_border, len(spots) - n_border))
 
 
 if __name__ == "__main__":
