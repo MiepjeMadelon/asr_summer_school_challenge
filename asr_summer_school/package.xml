@@ -12,6 +12,7 @@
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
   <depend>rclcpp_components</depend>
+  <depend>rmw_zenoh_cpp</depend>
 
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
