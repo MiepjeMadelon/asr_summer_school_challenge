@@ -6,6 +6,8 @@ from rclpy.node import Node
 from rclpy.duration import Duration
 import tf2_ros
 
+from geometry_msgs.msg import Pose, PoseArray
+from std_msgs.msg import Int32MultiArray
 from std_msgs.msg import String
 from apriltag_msgs.msg import AprilTagDetectionArray
 from landmark_msgs.msg import LandmarkArray
@@ -30,7 +32,10 @@ class ApriltagSubscriber(Node):
             '/camera/landmarks',
             self.listener_callback,
             10)
-        self.publisher_ = self.create_publisher(String, '/abs_detections', 10)
+
+        self.pose_pub = self.create_publisher(PoseArray, '/tag_poses_map', 10)
+        self.id_pub = self.create_publisher(Int32MultiArray, '/tag_ids', 10)
+        #self.publisher_ = self.create_publisher(String, '/abs_detections', 10)
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, msg):
@@ -53,17 +58,36 @@ class ApriltagSubscriber(Node):
                  )
              except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                  self.get_logger().error(f"Unable to find the transformation from {source_frame} to {target_frame}")
-                 pass
+                 return
                  
              point_source = PointStamped()
-             point_source.point = Point(x=0.1, y=1.2, z=2.3)
+             point_source.header.frame_id = source_frame
+             point_source.point = Point(x=float(tag.x), y=float(tag.y), z=float(tag.z))
              point_target = do_transform_point(point_source, transformation)
-             
+
              temp = {"x": point_target.point.x, "y": point_target.point.y, "z": point_target.point.z}
              self.markers[tag.id] = temp
              self.publish()
              
     def publish(self):
+        ids = sorted(self.markers.keys())
+
+        pa = PoseArray()
+        pa.header.frame_id = 'map'
+        pa.header.stamp = self.get_clock().now().to_msg()
+        for tid in ids:
+            p = Pose()
+            p.position.x = self.markers[tid]['x']
+            p.position.y = self.markers[tid]['y']
+            p.position.z = self.markers[tid]['z']
+            p.orientation.w = 1.0
+            pa.poses.append(p)
+        self.pose_pub.publish(pa)
+
+        im = Int32MultiArray()
+        im.data = ids
+        self.id_pub.publish(im)
+
         msg = String()
         msg.data = json.dumps(self.markers)
         self.publisher_.publish(msg)
