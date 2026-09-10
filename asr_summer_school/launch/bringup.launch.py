@@ -78,6 +78,15 @@ def generate_launch_description():
 		)
 	)
 
+	mission_controller = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'mission_controller.launch.py']
+			)
+		)
+	)
+
+
 	return LaunchDescription([
 		robot_bringup,
 		slam_toolbox,
@@ -86,6 +95,7 @@ def generate_launch_description():
 		apriltag,
 		frontier_detection,
 		apriltag_detector,
-		control
+		control,
+		mission_controller
 	])
 
