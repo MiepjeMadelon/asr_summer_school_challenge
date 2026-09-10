@@ -44,7 +44,7 @@ class ApriltagSubscriber(Node):
              # /home/mauro/ros_ws/src/asr_summer_school_challenge/turtlebot3_perception/turtlebot3_perception/turtlebot3_perception/detection2landmark.py
              # https://fer.gs/ros2_cookbook/client_libraries/rclpy/tf2.html#transformations
              source_frame = 'camera_color_optical_frame'
-             target_frame = 'odom'
+             target_frame = 'map'
              try:
                  transformation = self.tf_buffer.lookup_transform(
                      target_frame,
