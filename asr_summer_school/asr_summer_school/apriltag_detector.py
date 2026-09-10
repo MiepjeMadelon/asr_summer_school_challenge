@@ -46,7 +46,7 @@ class ApriltagSubscriber(Node):
              
              # /home/mauro/ros_ws/src/asr_summer_school_challenge/turtlebot3_perception/turtlebot3_perception/turtlebot3_perception/detection2landmark.py
              # https://fer.gs/ros2_cookbook/client_libraries/rclpy/tf2.html#transformations
-             source_frame = 'camera_color_optical_frame'
+             source_frame = f"tag36h11:{tag.id}"
              target_frame = 'map'
              try:
                  transformation = self.tf_buffer.lookup_transform(
@@ -58,12 +58,13 @@ class ApriltagSubscriber(Node):
                  self.get_logger().error(f"Unable to find the transformation from {source_frame} to {target_frame}")
                  return
                  
-             point_source = PointStamped()
-             point_source.header.frame_id = source_frame
-             point_source.point = Point(x=float(tag.x), y=float(tag.y), z=float(tag.z))
-             point_target = do_transform_point(point_source, transformation)
+             #point_source = PointStamped()
+             #point_source.header.frame_id = source_frame
+             #point_source.point = Node.get_position_in_parent("map", "odom")
+             #point_target = do_transform_point(point_source, transformation)
+             point_target = transformation.transform.translation
 
-             temp = {"x": point_target.point.x, "y": point_target.point.y, "z": point_target.point.z}
+             temp = {"x": point_target.x, "y": point_target.y, "z": point_target.z}
              self.markers[tag.id] = temp
              self.publish()
              
