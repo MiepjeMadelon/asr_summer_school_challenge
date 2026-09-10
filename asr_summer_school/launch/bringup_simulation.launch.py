@@ -70,11 +70,29 @@ def generate_launch_description():
 		}]
 	)
 
+	apriltag_detector = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'apriltag.launch.py']
+			)
+		)
+	)
+
+	control = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'control.launch.py']
+			)
+		)
+	)
+
 	return LaunchDescription([
 		slam_toolbox,
 		teleop,
 		apriltag,
 		detection2landmark,
-		frontier_detection
+		frontier_detection,
+		apriltag_detector,
+		control
 	])
 
