@@ -43,6 +43,17 @@ def generate_launch_description():
 		remappings=[('image_rect', 'image_raw')]
 	)
 
+	detection2landmark = Node(
+		package='turtlebot3_perception',
+		executable='detection2landmark',
+		namespace='/camera',
+		output='screen',
+		parameters=[
+			{'use_sim_time': use_sim_time},
+			{'robot_base_frame': 'base_link'}
+		]
+	)
+
 	frontier_detection = Node(
 		package='asr_summer_school',
 		executable='frontier_detection_node_exe',
@@ -63,6 +74,7 @@ def generate_launch_description():
 		slam_toolbox,
 		teleop,
 		apriltag,
+		detection2landmark,
 		frontier_detection
 	])
 

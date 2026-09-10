@@ -1,14 +1,14 @@
 #! /usr/bin/env python3
 
 import rclpy
+import math
 from rclpy.node import Node
 from rclpy.duration import Duration
+from rclpy.time import Time
 import tf2_ros
 
 from geometry_msgs.msg import Pose, PoseArray
 from std_msgs.msg import Int32MultiArray
-from std_msgs.msg import String
-from apriltag_msgs.msg import AprilTagDetectionArray
 from landmark_msgs.msg import LandmarkArray
 from tf2_geometry_msgs import do_transform_point
 from geometry_msgs.msg import Point, PointStamped
@@ -17,14 +17,16 @@ from geometry_msgs.msg import Point, PointStamped
 
 class ApriltagSubscriber(Node):
 
-    markers = {}
-
     def __init__(self):
         super().__init__('apriltag_subscriber')
-        
+
+        self.markers = {}
+
         tf_cache_duration = 10.0  # seconds
         self.tf_buffer = tf2_ros.Buffer(cache_time=Duration(seconds=tf_cache_duration))
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+        # spin_thread=True: the buffer needs its own thread, otherwise a
+        # blocking lookup timeout inside a callback can never resolve.
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self, spin_thread=True)
         
         self.subscription = self.create_subscription(
             LandmarkArray,
@@ -38,37 +40,45 @@ class ApriltagSubscriber(Node):
 
     def listener_callback(self, msg):
         for tag in msg.landmarks:
-            self.marker_detected(tag)
+            self.marker_detected(tag, msg.header)
             
-    def marker_detected(self, tag):
+    def marker_detected(self, tag, header):
          if tag.id not in self.markers:
              self.get_logger().info('New marker #%d' % tag.id)
              
              # /home/mauro/ros_ws/src/asr_summer_school_challenge/turtlebot3_perception/turtlebot3_perception/turtlebot3_perception/detection2landmark.py
              # https://fer.gs/ros2_cookbook/client_libraries/rclpy/tf2.html#transformations
-             source_frame = 'camera_color_optical_frame'
+             # detection2landmark expresses range/bearing in its
+             # robot_base_frame and declares it in the array header.
+             source_frame = header.frame_id
              target_frame = 'map'
              try:
                  transformation = self.tf_buffer.lookup_transform(
                      target_frame,
                      source_frame,
-                     rclpy.time.Time()
+                     Time.from_msg(header.stamp),
+                     timeout=Duration(seconds=0.2)
                  )
              except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                  self.get_logger().error(f"Unable to find the transformation from {source_frame} to {target_frame}")
                  return
                  
              point_source = PointStamped()
-             point_source.header.frame_id = source_frame
-             point_source.point = Point(x=float(tag.x), y=float(tag.y), z=float(tag.z))
+             point_source.header = header
+             point_source.point = Point(x=float(tag.range) * math.cos(tag.bearing),
+                                        y=float(tag.range) * math.sin(tag.bearing))
              point_target = do_transform_point(point_source, transformation)
 
-             temp = {"x": point_target.point.x, "y": point_target.point.y, "z": point_target.point.z}
+             temp = {"x": point_target.point.x, "y": point_target.point.y}
              self.markers[tag.id] = temp
              self.publish()
              
     def publish(self):
         ids = sorted(self.markers.keys())
+
+        im = Int32MultiArray()
+        im.data = ids
+        self.id_pub.publish(im)
 
         pa = PoseArray()
         pa.header.frame_id = 'map'
@@ -77,14 +87,9 @@ class ApriltagSubscriber(Node):
             p = Pose()
             p.position.x = self.markers[tid]['x']
             p.position.y = self.markers[tid]['y']
-            p.position.z = self.markers[tid]['z']
             p.orientation.w = 1.0
             pa.poses.append(p)
         self.pose_pub.publish(pa)
-
-        im = Int32MultiArray()
-        im.data = ids
-        self.id_pub.publish(im)
 
 
 def main(args=None):
