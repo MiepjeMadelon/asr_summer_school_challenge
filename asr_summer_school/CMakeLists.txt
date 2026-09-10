@@ -13,6 +13,11 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
+#rosidl_generate_interfaces(${PROJECT_NAME}
+#  "asr_summer_school/msg/AbsoluteDetection.msg"
+#  "asr_summer_school/msg/AbsoluteDetections.msg"
+#)
+
 add_library(frontier_detection
   src/frontier_detection.cpp
 )
@@ -42,6 +47,9 @@ ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
   ${PROJECT_NAME}/example_nav_to_pose.py
+  ${PROJECT_NAME}/apriltag_detector.py
+  ${PROJECT_NAME}/mission_controller.py
+  ${PROJECT_NAME}/control.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

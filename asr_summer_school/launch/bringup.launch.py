@@ -62,12 +62,40 @@ def generate_launch_description():
 		}]
 	)
 
+	apriltag_detector = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'apriltag.launch.py']
+			)
+		)
+	)
+
+	control = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'control.launch.py']
+			)
+		)
+	)
+
+	mission_controller = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'mission_controller.launch.py']
+			)
+		)
+	)
+
+
 	return LaunchDescription([
 		robot_bringup,
 		slam_toolbox,
 		teleop,
 		camera,
 		apriltag,
-		frontier_detection
+		frontier_detection,
+		apriltag_detector,
+		control,
+		mission_controller
 	])
 
