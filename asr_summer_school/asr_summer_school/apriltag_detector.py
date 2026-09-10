@@ -10,7 +10,7 @@ from std_msgs.msg import String
 from apriltag_msgs.msg import AprilTagDetectionArray
 from landmark_msgs.msg import LandmarkArray
 from tf2_geometry_msgs import do_transform_point
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, PointStamped
 #from asr_summer_school.msg import AbsoluteDetections
 #from asr_summer_school.msg import AbsoluteDetection
 
@@ -21,9 +21,9 @@ class ApriltagSubscriber(Node):
     def __init__(self):
         super().__init__('apriltag_subscriber')
         
-         tf_cache_duration = 10.0  # seconds
-         self.tf_buffer = tf2_ros.Buffer(cache_time=Duration(seconds=tf_cache_duration))
-         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+        tf_cache_duration = 10.0  # seconds
+        self.tf_buffer = tf2_ros.Buffer(cache_time=Duration(seconds=tf_cache_duration))
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         
         self.subscription = self.create_subscription(
             LandmarkArray,
@@ -44,7 +44,7 @@ class ApriltagSubscriber(Node):
              # /home/mauro/ros_ws/src/asr_summer_school_challenge/turtlebot3_perception/turtlebot3_perception/turtlebot3_perception/detection2landmark.py
              # https://fer.gs/ros2_cookbook/client_libraries/rclpy/tf2.html#transformations
              source_frame = 'camera_color_optical_frame'
-             target_frame = 'camera_color_frame'
+             target_frame = 'odom'
              try:
                  transformation = self.tf_buffer.lookup_transform(
                      target_frame,
@@ -55,10 +55,11 @@ class ApriltagSubscriber(Node):
                  self.get_logger().error(f"Unable to find the transformation from {source_frame} to {target_frame}")
                  pass
                  
-             point_source = Point(x=0.1, y=1.2, z=2.3)
-             point_target = do_transform_point(transformation, point_source)
+             point_source = PointStamped()
+             point_source.point = Point(x=0.1, y=1.2, z=2.3)
+             point_target = do_transform_point(point_source, transformation)
              
-             temp = {"x": point_target.x, "y": point_target.y, "z": point_target.z}
+             temp = {"x": point_target.point.x, "y": point_target.point.y, "z": point_target.point.z}
              self.markers[tag.id] = temp
              self.publish()
              
