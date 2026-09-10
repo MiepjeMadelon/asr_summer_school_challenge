@@ -2,7 +2,8 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from geometry_msgs.msg import PoseArray
+from std_msgs.msg import String, Int32MultiArray
 from visualization_msgs.msg import Marker, MarkerArray, InteractiveMarker, InteractiveMarkerControl
 from interactive_markers import InteractiveMarkerServer
 import json
@@ -13,13 +14,20 @@ class Control(Node):
     def __init__(self):
         super().__init__('control')
 
+        self.create_subscription(
+            PoseArray, "/tag_poses_map", self.handle_tag_poses, 10
+        )
+        self.create_subscription(
+            Int32MultiArray, "/tag_ids", self.handle_tag_ids, 10
+        )
+
         self.marker_publisher = self.create_publisher(
             MarkerArray, "/detection_markers", 10
         )
 
-        self.create_subscription(
-            String, "/abs_detections", self.handle_detections, 10
-        )
+        # self.create_subscription(
+        #     String, "/abs_detections", self.handle_detections, 10
+        # )
 
         self.overview_publisher = self.create_publisher(
             String, "/overview_messages", 10
@@ -28,6 +36,8 @@ class Control(Node):
         self.timer_publisher = self.create_publisher(Marker, "/timer_marker", 10)
 
         self.detections = dict()
+        self.tag_ids = []
+        self.tag_poses = []
         self.start_time = None
         self.timer = None
 
@@ -102,12 +112,32 @@ class Control(Node):
         marker.text = f"{elapsed:.1f}"
         self.timer_publisher.publish(marker)
 
-    def handle_detections(self, msg):
-        json_msg = json.loads(msg.data)
-        for marker_id, coords in json_msg.items():
-            self.detections[int(marker_id)] = [float(c) for c in coords]
+    # def handle_detections(self, msg):
+    #     json_msg = json.loads(msg.data)
+    #     for marker_id, coords in json_msg.items():
+    #         self.detections[int(marker_id)] = [float(c) for c in coords]
+
+    #     self.publish_markers()
+
+    def handle_tag_ids(self, msg):
+        self.tag_ids = list(msg.data)
+        self.update_detections()
+
+    def handle_tag_poses(self, msg):
+        self.tag_poses = msg.poses
+        self.update_detections()
+
+    def update_detections(self):
+        if not self.tag_ids or len(self.tag_ids) != len(self.tag_poses):
+            return
+
+        for tag_id, pose in zip(self.tag_ids, self.tag_poses):
+            self.detections[int(tag_id)] = [
+                pose.position.x, pose.position.y, pose.position.z
+            ]
 
         self.publish_markers()
+
 
     def publish_markers(self):
         array = MarkerArray()
