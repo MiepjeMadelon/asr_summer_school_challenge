@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 
 import rclpy
-import json
 from rclpy.node import Node
 from rclpy.duration import Duration
 import tf2_ros
@@ -35,7 +34,6 @@ class ApriltagSubscriber(Node):
 
         self.pose_pub = self.create_publisher(PoseArray, '/tag_poses_map', 10)
         self.id_pub = self.create_publisher(Int32MultiArray, '/tag_ids', 10)
-        #self.publisher_ = self.create_publisher(String, '/abs_detections', 10)
         self.subscription  # prevent unused variable warning
 
     def listener_callback(self, msg):
@@ -87,10 +85,6 @@ class ApriltagSubscriber(Node):
         im = Int32MultiArray()
         im.data = ids
         self.id_pub.publish(im)
-
-        msg = String()
-        msg.data = json.dumps(self.markers)
-        self.publisher_.publish(msg)
 
 
 def main(args=None):
