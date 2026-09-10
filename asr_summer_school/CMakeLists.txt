@@ -13,6 +13,11 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
+#rosidl_generate_interfaces(${PROJECT_NAME}
+#  "asr_summer_school/msg/AbsoluteDetection.msg"
+#  "asr_summer_school/msg/AbsoluteDetections.msg"
+#)
+
 add_library(frontier_detection
   src/frontier_detection.cpp
 )
