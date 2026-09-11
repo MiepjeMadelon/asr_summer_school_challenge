@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-
 import math
 
 import rclpy
@@ -12,7 +11,7 @@ from rclpy.time import Time
 from std_msgs.msg import Int32MultiArray
 from tf2_geometry_msgs import do_transform_point
 
-MAX_SAMPLES = 20   # osservazioni tenute per ogni tag
+MAX_SAMPLES = 20   # osservation per tag
 
 
 class ApriltagSubscriber(Node):
@@ -23,7 +22,7 @@ class ApriltagSubscriber(Node):
         self.declare_parameter('max_range', 2.0)
         self.max_range = self.get_parameter('max_range').value
 
-        # id del tag -> lista di osservazioni (x, y) gia' in frame map
+        # id of tag -> list observation (x, y) just in map frame
         self.samples = {}
 
         self.tf_buffer = tf2_ros.Buffer(cache_time=Duration(seconds=10.0))
@@ -47,8 +46,7 @@ class ApriltagSubscriber(Node):
             self.publish()
 
     def marker_detected(self, tag, header):
-        # oltre i 2 m l'errore di posizione cresce in fretta ed e' proprio
-        # quello che viene punteggiato: meglio buttare la detection.
+        
         if tag.range > self.max_range:
             return False
 
