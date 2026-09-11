@@ -42,6 +42,7 @@ class MissionController(Node):
         d('goal_timeout', 30.0)         
         d('min_cluster', 6)             
         d('min_obstacle_dist', 0.25)    
+        d('unknown_buffer', 0.20)
         d('output_dir', os.path.expanduser('~/challenge_output'))
 
         g = lambda n: self.get_parameter(n).value
@@ -53,6 +54,7 @@ class MissionController(Node):
         self.goal_timeout = g('goal_timeout')
         self.min_cluster = g('min_cluster')
         self.min_obs = g('min_obstacle_dist')
+        self.unk_buf = g('unknown_buffer')
         self.outdir = g('output_dir')
 
         # ---------------- state ----------------
@@ -153,11 +155,24 @@ class MissionController(Node):
         free = (grid >= 0) & (grid <= 20)
         unknown = (grid == -1)
 
+        r = max(1, int(round(self.unk_buf / info.resolution)))
+        deep = unknown.copy()
+        for dr in range(-r, r + 1):
+            for dc in range(-r, r + 1):
+                sh = np.zeros_like(unknown)
+                sh[max(0, dr):info.height + min(0, dr),
+                   max(0, dc):info.width + min(0, dc)] = \
+                    unknown[max(0, -dr):info.height + min(0, -dr),
+                            max(0, -dc):info.width + min(0, -dc)]
+                deep &= sh
+
         nb = np.zeros_like(unknown)
-        nb[1:, :] |= unknown[:-1, :]
-        nb[:-1, :] |= unknown[1:, :]
-        nb[:, 1:] |= unknown[:, :-1]
-        nb[:, :-1] |= unknown[:, 1:]
+        for dr in range(-r - 1, r + 2):
+            for dc in range(-r - 1, r + 2):
+                nb[max(0, dr):info.height + min(0, dr),
+                   max(0, dc):info.width + min(0, dc)] |= \
+                    deep[max(0, -dr):info.height + min(0, -dr),
+                         max(0, -dc):info.width + min(0, -dc)]
 
 
         occ = (grid >= 65)
