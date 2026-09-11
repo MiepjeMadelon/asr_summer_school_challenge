@@ -139,7 +139,8 @@ class MissionController(Node):
     def must_return(self, robot):
         d = math.hypot(robot.pose.position.x - self.home.pose.position.x,
                        robot.pose.position.y - self.home.pose.position.y)
-        needed = (d * 1.4 / self.speed) * self.safety + self.margin
+        # needed = (d * 1.4 / self.speed) * self.safety + self.margin
+        needed = 60.0
         left = self.duration - self.elapsed()
         if left <= needed:
             self.get_logger().warn(
