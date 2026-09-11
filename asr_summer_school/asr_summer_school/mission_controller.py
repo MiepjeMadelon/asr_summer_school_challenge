@@ -3,6 +3,7 @@ import json
 import math
 import os
 import subprocess
+import time
 from collections import deque
 from enum import Enum
 
@@ -196,7 +197,12 @@ class MissionController(Node):
 
             mr = sum(c[0] for c in cells) / len(cells)
             mc = sum(c[1] for c in cells) / len(cells)
-            cr, cc = min(cells, key=lambda p: (p[0] - mr) ** 2 + (p[1] - mc) ** 2)
+            cand = [p for p in cells if math.hypot(
+                info.origin.position.x + (p[1] + 0.5) * info.resolution - rx,
+                info.origin.position.y + (p[0] + 0.5) * info.resolution - ry) >= 0.3]
+            if not cand:
+                continue
+            cr, cc = min(cand, key=lambda p: (p[0] - mr) ** 2 + (p[1] - mc) ** 2)
             wx = info.origin.position.x + (cc + 0.5) * info.resolution
             wy = info.origin.position.y + (cr + 0.5) * info.resolution
 
@@ -245,11 +251,11 @@ class MissionController(Node):
     def run(self):
         self.get_logger().info('Attendo mappa e TF...')
         while rclpy.ok() and (self.map_msg is None or self.pose() is None):
-            rclpy.spin_once(self, timeout_sec=0.5)
+            time.sleep(0.5)
 
         # il cronometro parte solo quando Nav2 e' pronto ad accettare goal
         self.get_logger().info('Attendo Nav2...')
-        self.nav.waitUntilNav2Active(localizer='slam_toolbox')
+        self.nav.nav_to_pose_client.wait_for_server()
 
         self.home = self.pose()
         self.t0 = self.get_clock().now()
@@ -258,7 +264,7 @@ class MissionController(Node):
             f'{self.home.pose.position.y:.2f})  budget={self.duration:.0f}s')
 
         while rclpy.ok() and self.state != State.DONE:
-            rclpy.spin_once(self, timeout_sec=0.1)
+            time.sleep(0.1)
             robot = self.pose()
             if robot is None:
                 continue

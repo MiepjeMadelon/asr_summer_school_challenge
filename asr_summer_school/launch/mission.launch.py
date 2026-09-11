@@ -18,7 +18,6 @@ def generate_launch_description():
         Node(
             package='asr_summer_school',
             executable='mission_controller.py',
-            name='mission_controller',
             output='screen',
             parameters=[{
                 'use_sim_time': use_sim_time,
