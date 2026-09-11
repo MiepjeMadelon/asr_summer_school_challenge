@@ -77,6 +77,7 @@ class MissionController(Node):
         self.create_subscription(PoseArray, '/tag_poses_map', self.tags_cb, 10)
         self.create_subscription(Int32MultiArray, '/tag_ids', self.ids_cb, 10)
         self.create_subscription(String, '/overview_messages', self.cmd_cb, 10)
+        self.cmd_pub = self.create_publisher(String, '/overview_messages', 10)
 
         self.tf = Buffer()
         self.tf_listener = TransformListener(self.tf, self, spin_thread=True)
@@ -242,6 +243,7 @@ class MissionController(Node):
         if self.saved:
             return
         self.saved = True
+        self.cmd_pub.publish(String(data='stop'))
         os.makedirs(self.outdir, exist_ok=True)
 
         path = os.path.join(self.outdir, 'semantic_map.json')
@@ -258,6 +260,12 @@ class MissionController(Node):
 
         self.get_logger().info(f'Salvati {len(self.tags)} tag in {self.outdir}')
 
+
+    def reset(self):
+        self.state = State.EXPLORING
+        self.saved = False
+        self.goal = None
+        self.cmd = None
 
     def run(self):
         self.get_logger().info('Attendo mappa e TF...')
@@ -362,7 +370,9 @@ def main(args=None):
     rclpy.init(args=args)
     node = MissionController()
     try:
-        node.run()
+        while rclpy.ok():
+            node.run()
+            node.reset()
     except KeyboardInterrupt:
         pass
     finally:

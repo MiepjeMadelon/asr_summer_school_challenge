@@ -34,9 +34,19 @@ class ApriltagSubscriber(Node):
 
         self.pose_pub = self.create_publisher(PoseArray, '/tag_poses_map', 10)
         self.id_pub = self.create_publisher(Int32MultiArray, '/tag_ids', 10)
+        self.create_subscription(String, '/overview_messages', self.cmd_cb, 10)
+        self.started = False
         self.subscription  # prevent unused variable warning
 
+    def cmd_cb(self, msg):
+        if msg.data == 'start':
+            self.started = True
+        elif msg.data == 'stop':
+            self.started = False
+
     def listener_callback(self, msg):
+        if not self.started:
+            return
         for tag in msg.landmarks:
             self.marker_detected(tag)
             

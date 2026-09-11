@@ -96,7 +96,8 @@ def generate_launch_description():
 				[FindPackageShare('asr_summer_school'), 'launch', 'mission.launch.py']
 			)
 		),
-		launch_arguments={'use_sim_time': use_sim_time}.items()
+		launch_arguments={'use_sim_time': use_sim_time,
+			'mission_duration': LaunchConfiguration('mission_duration', default='240.0')}.items()
 	)
 
 	return LaunchDescription([
