@@ -52,7 +52,7 @@ class ApriltagSubscriber(Node):
             
     def marker_detected(self, tag):
          if tag.id not in self.markers:
-             self.get_logger().debug('New marker #%d' % tag.id)
+             self.get_logger().info('New marker #%d' % tag.id)
              
              # /home/mauro/ros_ws/src/asr_summer_school_challenge/turtlebot3_perception/turtlebot3_perception/turtlebot3_perception/detection2landmark.py
              # https://fer.gs/ros2_cookbook/client_libraries/rclpy/tf2.html#transformations
@@ -65,7 +65,7 @@ class ApriltagSubscriber(Node):
                      rclpy.time.Time()
                  )
              except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-                 self.get_logger().debug(f"Unable to find the transformation from {source_frame} to {target_frame}")
+                 self.get_logger().error(f"Unable to find the transformation from {source_frame} to {target_frame}")
                  return
                  
              #point_source = PointStamped()

@@ -112,7 +112,7 @@ class MissionController(Node):
             return
         for tid, p in zip(self.last_ids, self.last_poses):
             if tid not in self.tags:
-                self.get_logger().debug(
+                self.get_logger().info(
                     f'>>> TAG {tid} @ ({p.position.x:.2f}, {p.position.y:.2f})  '
                     f'[{len(self.tags) + 1}/{self.n_target}]')
             self.tags[tid] = (p.position.x, p.position.y)
@@ -142,7 +142,7 @@ class MissionController(Node):
         needed = (d * 1.4 / self.speed) * self.safety + self.margin
         left = self.duration - self.elapsed()
         if left <= needed:
-            self.get_logger().debug(
+            self.get_logger().warn(
                 f'RIENTRO: restano {left:.0f}s, servono {needed:.0f}s '
                 f'(distanza {d:.1f}m)')
             return True
@@ -258,7 +258,7 @@ class MissionController(Node):
                         '-f', os.path.join(self.outdir, 'map')],
                        timeout=40, check=False)
 
-        self.get_logger().debug(f'Salvati {len(self.tags)} tag in {self.outdir}')
+        self.get_logger().info(f'Salvati {len(self.tags)} tag in {self.outdir}')
 
 
     def reset(self):
@@ -268,12 +268,12 @@ class MissionController(Node):
         self.cmd = None
 
     def run(self):
-        self.get_logger().debug('Attendo mappa e TF...')
+        self.get_logger().info('Attendo mappa e TF...')
         while rclpy.ok() and (self.map_msg is None or self.pose() is None):
             time.sleep(0.5)
 
         # il cronometro parte solo quando Nav2 e' pronto ad accettare goal
-        self.get_logger().debug('Attendo Nav2...')
+        self.get_logger().info('Attendo Nav2...')
         self.nav.nav_to_pose_client.wait_for_server()
 
         self.get_logger().info('Attendo START...')
@@ -282,7 +282,7 @@ class MissionController(Node):
 
         self.home = self.pose()
         self.t0 = self.get_clock().now()
-        self.get_logger().debug(
+        self.get_logger().info(
             f'HOME=({self.home.pose.position.x:.2f}, '
             f'{self.home.pose.position.y:.2f})  budget={self.duration:.0f}s')
 
@@ -317,7 +317,7 @@ class MissionController(Node):
                     stop = 'tempo esaurito'
 
                 if stop:
-                    self.get_logger().debug(f'RIENTRO ({stop})')
+                    self.get_logger().info(f'RIENTRO ({stop})')
                     self.nav.cancelTask()
                     self.goal = None
                     self.state = State.RETURNING
@@ -327,14 +327,14 @@ class MissionController(Node):
                 if self.goal is None:
                     g = self.next_goal(robot)
                     if g is None:
-                        self.get_logger().debug('RIENTRO (mappa completa)')
+                        self.get_logger().info('RIENTRO (mappa completa)')
                         self.state = State.RETURNING
                         self.nav.goToPose(self.home)
                         continue
                     self.goal = g
                     self.goal_t0 = self.get_clock().now()
                     self.nav.goToPose(g)
-                    self.get_logger().debug(
+                    self.get_logger().info(
                         f'GOAL ({g.pose.position.x:.2f}, {g.pose.position.y:.2f})  '
                         f't={self.elapsed():.0f}/{self.duration:.0f}s  '
                         f'tag={len(self.tags)}')
@@ -347,7 +347,7 @@ class MissionController(Node):
 
                 elif (self.get_clock().now() - self.goal_t0).nanoseconds / 1e9 > self.goal_timeout:
 
-                    self.get_logger().debug('Goal troppo lento, ne scelgo un altro')
+                    self.get_logger().warn('Goal troppo lento, ne scelgo un altro')
                     self.nav.cancelTask()
                     self.failed.append((self.goal.pose.position.x,
                                         self.goal.pose.position.y))
@@ -357,7 +357,7 @@ class MissionController(Node):
                 if self.nav.isTaskComplete():
                     d = math.hypot(robot.pose.position.x - self.home.pose.position.x,
                                    robot.pose.position.y - self.home.pose.position.y)
-                    self.get_logger().debug(
+                    self.get_logger().info(
                         f'A {d:.2f}m da HOME  t={self.elapsed():.0f}s')
                     if d > 0.4 and self.elapsed() < self.duration - 10:
                         self.nav.goToPose(self.home)   # riprova
