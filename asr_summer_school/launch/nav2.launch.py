@@ -132,7 +132,7 @@ def generate_launch_description():
         description='Whether to respawn if a node crashes. Applied when composition is disabled.')
 
     declare_log_level_cmd = DeclareLaunchArgument(
-        'log_level', default_value='info',
+        'log_level', default_value='warn',
         description='log level')
 
     declare_use_intra_process_comms_cmd = DeclareLaunchArgument(
@@ -187,6 +187,7 @@ def generate_launch_description():
                               'params_file': params_file,
                               'use_composition': use_composition,
                               'use_respawn': use_respawn,
+                              'log_level': log_level,
                               'container_name': 'nav2_container'}.items()),
     ])
 
