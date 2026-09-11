@@ -76,6 +76,14 @@ def generate_launch_description():
 		)
 	)
 
+	nav2 = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'nav2.launch.py']
+			)
+		)
+	)
+
 	mission_controller = IncludeLaunchDescription(
 		PythonLaunchDescriptionSource(
 			PathJoinSubstitution(

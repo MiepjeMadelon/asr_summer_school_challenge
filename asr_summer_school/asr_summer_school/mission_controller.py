@@ -34,7 +34,7 @@ class MissionController(Node):
         # ---------------- Parametrs -----------
         d = self.declare_parameter
         d('mission_duration', 240.0)   
-        d('n_tags_target', 12)          
+        d('n_tags_target', 11)          
         d('avg_speed', 0.12)            
         d('return_margin', 15.0)        
         d('safety_factor', 1.5)         
@@ -84,6 +84,7 @@ class MissionController(Node):
             self.get_parameter('use_sim_time').value)])
 
         self.last_ids = []
+        self.last_poses = []
 
 
     def map_cb(self, msg):
@@ -91,13 +92,17 @@ class MissionController(Node):
 
     def ids_cb(self, msg):
         self.last_ids = list(msg.data)
+        self.sync_tags()
 
     def tags_cb(self, msg):
-        # senza id allineati l'accoppiamento per indice e' sbagliato: si
-        # salverebbero tag con l'id di un altro.
-        if len(self.last_ids) != len(msg.poses):
+        self.last_poses = msg.poses
+        self.sync_tags()
+
+    def sync_tags(self):
+        if not self.last_ids or len(self.last_ids) != len(self.last_poses):
             return
-        for tid, p in zip(self.last_ids, msg.poses):
+        for tid, p in zip(self.last_ids, self.last_poses):
+            tid = int(tid)
             if tid not in self.tags:
                 self.get_logger().info(
                     f'>>> TAG {tid} @ ({p.position.x:.2f}, {p.position.y:.2f})  '
