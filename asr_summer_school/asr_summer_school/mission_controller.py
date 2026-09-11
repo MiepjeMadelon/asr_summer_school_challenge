@@ -13,6 +13,7 @@ from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from nav_msgs.msg import OccupancyGrid
 from rclpy.duration import Duration
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.qos import (QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile,
                        QoSReliabilityPolicy)
 from std_msgs.msg import Int32MultiArray
@@ -33,12 +34,13 @@ class MissionController(Node):
         # ---------------- Parametrs -----------
         d = self.declare_parameter
         d('mission_duration', 240.0)   
-        d('n_tags_target', 12)          
+        d('n_tags_target', 11)          
         d('avg_speed', 0.12)            
         d('return_margin', 15.0)        
         d('safety_factor', 1.5)         
         d('goal_timeout', 30.0)         
         d('min_cluster', 6)             
+        d('min_obstacle_dist', 0.25)    
         d('output_dir', os.path.expanduser('~/challenge_output'))
 
         g = lambda n: self.get_parameter(n).value
@@ -49,6 +51,7 @@ class MissionController(Node):
         self.safety = g('safety_factor')
         self.goal_timeout = g('goal_timeout')
         self.min_cluster = g('min_cluster')
+        self.min_obs = g('min_obstacle_dist')
         self.outdir = g('output_dir')
 
         # ---------------- state ----------------
@@ -74,8 +77,14 @@ class MissionController(Node):
         self.tf = Buffer()
         self.tf_listener = TransformListener(self.tf, self, spin_thread=True)
         self.nav = BasicNavigator()
+        # BasicNavigator crea un nodo suo: senza questo leggerebbe il
+        # wall clock mentre il resto del sistema usa il clock di Gazebo.
+        self.nav.set_parameters([Parameter(
+            'use_sim_time', Parameter.Type.BOOL,
+            self.get_parameter('use_sim_time').value)])
 
         self.last_ids = []
+        self.last_poses = []
 
 
     def map_cb(self, msg):
@@ -83,10 +92,16 @@ class MissionController(Node):
 
     def ids_cb(self, msg):
         self.last_ids = list(msg.data)
+        self.sync_tags()
 
     def tags_cb(self, msg):
-        for i, p in enumerate(msg.poses):
-            tid = self.last_ids[i] if i < len(self.last_ids) else i
+        self.last_poses = msg.poses
+        self.sync_tags()
+
+    def sync_tags(self):
+        if not self.last_ids or len(self.last_ids) != len(self.last_poses):
+            return
+        for tid, p in zip(self.last_ids, self.last_poses):
             if tid not in self.tags:
                 self.get_logger().info(
                     f'>>> TAG {tid} @ ({p.position.x:.2f}, {p.position.y:.2f})  '
@@ -146,8 +161,9 @@ class MissionController(Node):
 
         occ = (grid >= 65)
         wall = np.zeros_like(occ)
-        for dr in (-2, -1, 0, 1, 2):
-            for dc in (-2, -1, 0, 1, 2):
+        pad = max(1, int(round(self.min_obs / info.resolution)))
+        for dr in range(-pad, pad + 1):
+            for dc in range(-pad, pad + 1):
                 wall[max(0, dr):info.height + min(0, dr),
                      max(0, dc):info.width + min(0, dc)] |= \
                     occ[max(0, -dr):info.height + min(0, -dr),
@@ -230,6 +246,10 @@ class MissionController(Node):
         self.get_logger().info('Attendo mappa e TF...')
         while rclpy.ok() and (self.map_msg is None or self.pose() is None):
             rclpy.spin_once(self, timeout_sec=0.5)
+
+        # il cronometro parte solo quando Nav2 e' pronto ad accettare goal
+        self.get_logger().info('Attendo Nav2...')
+        self.nav.waitUntilNav2Active(localizer='slam_toolbox')
 
         self.home = self.pose()
         self.t0 = self.get_clock().now()

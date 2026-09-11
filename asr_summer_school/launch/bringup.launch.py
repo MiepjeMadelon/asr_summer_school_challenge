@@ -3,10 +3,12 @@ from launch.actions import IncludeLaunchDescription
 from launch_ros.actions import Node
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 
 
 def generate_launch_description():
+	use_sim_time = LaunchConfiguration('use_sim_time', default='false')
+
 	robot_bringup = IncludeLaunchDescription(
 		PythonLaunchDescriptionSource(
 			PathJoinSubstitution(
@@ -62,6 +64,16 @@ def generate_launch_description():
 		}]
 	)
 
+	nav2 = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'nav2.launch.py']
+			)
+		),
+		launch_arguments={'use_sim_time': use_sim_time}.items()
+	)
+
+
 	apriltag_detector = IncludeLaunchDescription(
 		PythonLaunchDescriptionSource(
 			PathJoinSubstitution(
@@ -78,14 +90,25 @@ def generate_launch_description():
 		)
 	)
 
+	mission = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'mission.launch.py']
+			)
+		),
+		launch_arguments={'use_sim_time': use_sim_time}.items()
+	)
+
 	return LaunchDescription([
 		robot_bringup,
 		slam_toolbox,
 		teleop,
 		camera,
 		apriltag,
+		nav2,
 		frontier_detection,
 		apriltag_detector,
-		control
+		control,
+		mission
 	])
 
