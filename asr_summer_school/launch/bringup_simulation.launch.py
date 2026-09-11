@@ -70,12 +70,22 @@ def generate_launch_description():
 		}]
 	)
 
+	nav2 = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'nav2.launch.py']
+			)
+		),
+		launch_arguments={'use_sim_time': use_sim_time}.items()
+	)
+
 	apriltag_detector = IncludeLaunchDescription(
 		PythonLaunchDescriptionSource(
 			PathJoinSubstitution(
 				[FindPackageShare('asr_summer_school'), 'launch', 'apriltag.launch.py']
-			)
-		)
+			),
+		),
+		launch_arguments={'use_sim_time': use_sim_time}.items()
 	)
 
 	control = IncludeLaunchDescription(
@@ -83,7 +93,17 @@ def generate_launch_description():
 			PathJoinSubstitution(
 				[FindPackageShare('asr_summer_school'), 'launch', 'control.launch.py']
 			)
-		)
+		),
+		launch_arguments={'use_sim_time': use_sim_time}.items()
+	)
+
+	mission = IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution(
+				[FindPackageShare('asr_summer_school'), 'launch', 'mission.launch.py']
+			)
+		),
+		launch_arguments={'use_sim_time': use_sim_time}.items()
 	)
 
 	return LaunchDescription([
@@ -92,7 +112,9 @@ def generate_launch_description():
 		apriltag,
 		detection2landmark,
 		frontier_detection,
+		nav2,
 		apriltag_detector,
-		control
+		control,
+		mission
 	])
 

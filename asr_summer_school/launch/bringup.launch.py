@@ -1,32 +1,29 @@
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
-from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch.substitutions import PathJoinSubstitution
+
+
+def asr(name, **kwargs):
+	return IncludeLaunchDescription(
+		PythonLaunchDescriptionSource(
+			PathJoinSubstitution([FindPackageShare('asr_summer_school'), 'launch', name])
+		),
+		**kwargs
+	)
 
 
 def generate_launch_description():
+	# sul robot vero il clock e' quello di sistema
+	use_sim_time = LaunchConfiguration('use_sim_time')
+	sim_arg = {'use_sim_time': use_sim_time}.items()
+
 	robot_bringup = IncludeLaunchDescription(
 		PythonLaunchDescriptionSource(
 			PathJoinSubstitution(
 				[FindPackageShare('turtlebot3_bringup'), 'launch', 'robot.launch.py']
-			)
-		)
-	)
-
-	slam_toolbox = IncludeLaunchDescription(
-		PythonLaunchDescriptionSource(
-			PathJoinSubstitution(
-				[FindPackageShare('asr_summer_school'), 'launch', 'slam_toolbox.launch.py']
-			)
-		)
-	)
-
-	teleop = IncludeLaunchDescription(
-		PythonLaunchDescriptionSource(
-			PathJoinSubstitution(
-				[FindPackageShare('asr_summer_school'), 'launch', 'teleop.launch.py']
 			)
 		)
 	)
@@ -58,7 +55,8 @@ def generate_launch_description():
 			'epsilon': 0.5,
 			'min_points': 3,
 			'min_frontier_size': 20,
-			'active_area_radius': 10.0
+			'active_area_radius': 10.0,
+			'use_sim_time': use_sim_time
 		}]
 	)
 
@@ -88,14 +86,14 @@ def generate_launch_description():
 
 
 	return LaunchDescription([
+		DeclareLaunchArgument('use_sim_time', default_value='false'),
 		robot_bringup,
-		slam_toolbox,
-		teleop,
+		asr('slam_toolbox.launch.py', launch_arguments=sim_arg),
 		camera,
 		apriltag,
 		frontier_detection,
-		apriltag_detector,
-		control,
-		mission_controller
+		asr('nav2.launch.py', launch_arguments=sim_arg),
+		asr('apriltag.launch.py', launch_arguments=sim_arg),
+		asr('control.launch.py', launch_arguments=sim_arg),
+		asr('mission.launch.py', launch_arguments=sim_arg),
 	])
-
