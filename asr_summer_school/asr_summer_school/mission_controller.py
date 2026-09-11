@@ -41,7 +41,7 @@ class MissionController(Node):
         d('safety_factor', 1.5)         
         d('goal_timeout', 30.0)         
         d('min_cluster', 6)             
-        d('min_obstacle_dist', 0.15)    
+        d('min_obstacle_dist', 0.16)    
         d('unknown_buffer', 0.15)
         d('output_dir', os.path.expanduser('~/challenge_output'))
 
@@ -182,10 +182,31 @@ class MissionController(Node):
                     occ[max(0, -dr):info.height + min(0, -dr),
                         max(0, -dc):info.width + min(0, -dc)]
 
-        mask = free & nb & ~wall
+        rx, ry = robot.pose.position.x, robot.pose.position.y
+        rr = int((ry - info.origin.position.y) / info.resolution)
+        rc = int((rx - info.origin.position.x) / info.resolution)
+        if not (0 <= rr < info.height and 0 <= rc < info.width):
+            return None
+
+        trav = free & ~wall
+        if not trav[rr, rc]:
+            trav = free
+        reach = np.zeros_like(trav)
+        reach[rr, rc] = True
+        while True:
+            nxt = reach.copy()
+            nxt[1:, :] |= reach[:-1, :]
+            nxt[:-1, :] |= reach[1:, :]
+            nxt[:, 1:] |= reach[:, :-1]
+            nxt[:, :-1] |= reach[:, 1:]
+            nxt &= trav
+            if np.array_equal(nxt, reach):
+                break
+            reach = nxt
+
+        mask = free & nb & ~wall & reach
 
         seen = np.zeros_like(mask, dtype=bool)
-        rx, ry = robot.pose.position.x, robot.pose.position.y
         best, best_score = None, -1e9
 
         for r0, c0 in np.argwhere(mask):
@@ -311,9 +332,7 @@ class MissionController(Node):
 
     
                 stop = None
-                if len(self.tags) >= self.n_target:
-                    stop = f'trovati tutti i {self.n_target} tag'
-                elif self.must_return(robot):
+                if self.must_return(robot):
                     stop = 'tempo esaurito'
 
                 if stop:
