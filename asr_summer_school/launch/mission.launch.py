@@ -29,7 +29,7 @@ def generate_launch_description():
                 'goal_timeout': 30.0,
                 'min_cluster': 6,
                 # coerente con inflation_radius del costmap Nav2
-                'min_obstacle_dist': 0.16,
+                'min_obstacle_dist': 0.13,
                 'unknown_buffer': 0.15,
             }],
         ),

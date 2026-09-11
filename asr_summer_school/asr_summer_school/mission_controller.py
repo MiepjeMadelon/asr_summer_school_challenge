@@ -41,7 +41,7 @@ class MissionController(Node):
         d('safety_factor', 1.5)         
         d('goal_timeout', 30.0)         
         d('min_cluster', 6)             
-        d('min_obstacle_dist', 0.16)    
+        d('min_obstacle_dist', 0.13)    
         d('unknown_buffer', 0.15)
         d('output_dir', os.path.expanduser('~/challenge_output'))
 
