@@ -35,7 +35,7 @@ class MissionController(Node):
         # ---------------- Parametrs -----------
         d = self.declare_parameter
         d('mission_duration', 240.0)   
-        d('n_tags_target', 11)          
+        d('n_tags_target', 12)          
         d('avg_speed', 0.12)            
         d('return_margin', 15.0)        
         d('safety_factor', 1.5)         

@@ -23,7 +23,7 @@ def generate_launch_description():
                 'use_sim_time': use_sim_time,
                 'mission_duration': LaunchConfiguration('mission_duration'),
                 'avg_speed': LaunchConfiguration('avg_speed'),
-                'n_tags_target': 11,
+                'n_tags_target': 12,
                 'return_margin': 15.0,
                 'safety_factor': 1.5,
                 'goal_timeout': 30.0,
