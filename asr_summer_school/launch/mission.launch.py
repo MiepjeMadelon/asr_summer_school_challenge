@@ -8,7 +8,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
 
     return LaunchDescription([
-        DeclareLaunchArgument('use_sim_time', default_value='true'),
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
         # deadline della prova
         DeclareLaunchArgument('mission_duration', default_value='240.0'),
         # velocita' media misurata sul campo: in dubbio sottostimare, se e'
@@ -24,7 +24,9 @@ def generate_launch_description():
                 'use_sim_time': use_sim_time,
                 'mission_duration': LaunchConfiguration('mission_duration'),
                 'avg_speed': LaunchConfiguration('avg_speed'),
-                'n_tags_target': 12,
+                # 11 sono i tag del mondo di simulazione; nella prova
+                # vera sono 12, passare n_tags_target:=12
+                'n_tags_target': 11,
                 'return_margin': 15.0,
                 'safety_factor': 1.5,
                 'goal_timeout': 30.0,
