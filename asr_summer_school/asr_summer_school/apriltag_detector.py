@@ -1,105 +1,116 @@
 #! /usr/bin/env python3
 
-import rclpy
-from rclpy.node import Node
-from rclpy.duration import Duration
-import tf2_ros
+import math
 
-from geometry_msgs.msg import Pose, PoseArray
-from std_msgs.msg import Int32MultiArray
-from std_msgs.msg import String
-from apriltag_msgs.msg import AprilTagDetectionArray
+import rclpy
+import tf2_ros
+from geometry_msgs.msg import Point, PointStamped, Pose, PoseArray
 from landmark_msgs.msg import LandmarkArray
+from rclpy.duration import Duration
+from rclpy.node import Node
+from rclpy.time import Time
+from std_msgs.msg import Int32MultiArray
 from tf2_geometry_msgs import do_transform_point
-from geometry_msgs.msg import Point, PointStamped
-#from asr_summer_school.msg import AbsoluteDetections
-#from asr_summer_school.msg import AbsoluteDetection
+
+MAX_SAMPLES = 20   # osservazioni tenute per ogni tag
+
 
 class ApriltagSubscriber(Node):
 
-    markers = {}
-
     def __init__(self):
         super().__init__('apriltag_subscriber')
-        
-        tf_cache_duration = 10.0  # seconds
-        self.tf_buffer = tf2_ros.Buffer(cache_time=Duration(seconds=tf_cache_duration))
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
-        
-        self.subscription = self.create_subscription(
-            LandmarkArray,
-            '/camera/landmarks',
-            self.listener_callback,
-            10)
+
+        self.declare_parameter('max_range', 2.0)
+        self.max_range = self.get_parameter('max_range').value
+
+        # id del tag -> lista di osservazioni (x, y) gia' in frame map
+        self.samples = {}
+
+        self.tf_buffer = tf2_ros.Buffer(cache_time=Duration(seconds=10.0))
+        # spin_thread=True: il buffer ha bisogno di un thread suo, altrimenti
+        # una lookup con timeout dentro una callback non si risolve mai.
+        self.tf_listener = tf2_ros.TransformListener(
+            self.tf_buffer, self, spin_thread=True)
+
+        self.create_subscription(
+            LandmarkArray, '/camera/landmarks', self.listener_callback, 10)
 
         self.pose_pub = self.create_publisher(PoseArray, '/tag_poses_map', 10)
         self.id_pub = self.create_publisher(Int32MultiArray, '/tag_ids', 10)
-        self.subscription  # prevent unused variable warning
 
     def listener_callback(self, msg):
+        updated = False
         for tag in msg.landmarks:
-            self.marker_detected(tag)
-            
-    def marker_detected(self, tag):
-         if tag.id not in self.markers:
-             self.get_logger().info('New marker #%d' % tag.id)
-             
-             # /home/mauro/ros_ws/src/asr_summer_school_challenge/turtlebot3_perception/turtlebot3_perception/turtlebot3_perception/detection2landmark.py
-             # https://fer.gs/ros2_cookbook/client_libraries/rclpy/tf2.html#transformations
-             source_frame = f"tag36h11:{tag.id}"
-             target_frame = 'map'
-             try:
-                 transformation = self.tf_buffer.lookup_transform(
-                     target_frame,
-                     source_frame,
-                     rclpy.time.Time()
-                 )
-             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-                 self.get_logger().error(f"Unable to find the transformation from {source_frame} to {target_frame}")
-                 return
-                 
-             #point_source = PointStamped()
-             #point_source.header.frame_id = source_frame
-             #point_source.point = Node.get_position_in_parent("map", "odom")
-             #point_target = do_transform_point(point_source, transformation)
-             point_target = transformation.transform.translation
+            if self.marker_detected(tag, msg.header):
+                updated = True
+        if updated:
+            self.publish()
 
-             temp = {"x": point_target.x, "y": point_target.y, "z": point_target.z}
-             self.markers[tag.id] = temp
-             self.publish()
-             
+    def marker_detected(self, tag, header):
+        # oltre i 2 m l'errore di posizione cresce in fretta ed e' proprio
+        # quello che viene punteggiato: meglio buttare la detection.
+        if tag.range > self.max_range:
+            return False
+
+        try:
+            # lookup all'istante del messaggio, non all'ultima TF disponibile
+            transformation = self.tf_buffer.lookup_transform(
+                'map', header.frame_id, Time.from_msg(header.stamp),
+                timeout=Duration(seconds=0.2))
+        except tf2_ros.TransformException as exc:
+            self.get_logger().warn(
+                f'TF {header.frame_id} -> map non disponibile: {exc}')
+            return False
+
+        # detection2landmark da' range/bearing nel frame dichiarato nell'header
+        point_source = PointStamped()
+        point_source.header = header
+        point_source.point = Point(x=tag.range * math.cos(tag.bearing),
+                                   y=tag.range * math.sin(tag.bearing),
+                                   z=0.0)
+        point_target = do_transform_point(point_source, transformation)
+
+        samples = self.samples.setdefault(tag.id, [])
+        if not samples:
+            self.get_logger().info(f'Nuovo tag #{tag.id}')
+        samples.append((point_target.point.x, point_target.point.y))
+        del samples[:-MAX_SAMPLES]
+        return True
+
     def publish(self):
-        ids = sorted(self.markers.keys())
+        ids = sorted(self.samples.keys())
+
+        # gli id vanno pubblicati prima delle pose: chi ascolta le accoppia
+        # per indice e deve gia' avere la lista aggiornata quando arrivano.
+        im = Int32MultiArray()
+        im.data = [int(i) for i in ids]
+        self.id_pub.publish(im)
 
         pa = PoseArray()
         pa.header.frame_id = 'map'
         pa.header.stamp = self.get_clock().now().to_msg()
         for tid in ids:
+            samples = self.samples[tid]
             p = Pose()
-            p.position.x = self.markers[tid]['x']
-            p.position.y = self.markers[tid]['y']
-            p.position.z = self.markers[tid]['z']
+            # media delle osservazioni: la prima e' tipicamente la peggiore
+            p.position.x = sum(x for x, _ in samples) / len(samples)
+            p.position.y = sum(y for _, y in samples) / len(samples)
             p.orientation.w = 1.0
             pa.poses.append(p)
         self.pose_pub.publish(pa)
 
-        im = Int32MultiArray()
-        im.data = ids
-        self.id_pub.publish(im)
-
 
 def main(args=None):
     rclpy.init(args=args)
-
     apriltag_subscriber = ApriltagSubscriber()
-
-    rclpy.spin(apriltag_subscriber)
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    apriltag_subscriber.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(apriltag_subscriber)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        apriltag_subscriber.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':
