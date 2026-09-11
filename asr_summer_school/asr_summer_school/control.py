@@ -42,13 +42,17 @@ class Control(Node):
         self.timer = None
 
         self.server = InteractiveMarkerServer(self, "start_button")
-        self.make_button()
+        for name, text, y, rgb in (("start", "START", 1.0, (0.0, 1.0, 0.0)),
+                                   ("stop", "STOP", 0.0, (1.0, 0.0, 0.0)),
+                                   ("home", "HOME", -1.0, (0.0, 0.4, 1.0))):
+            self.make_button(name, text, y, rgb)
 
-    def make_button(self):
+    def make_button(self, name, text, y, rgb):
         int_marker = InteractiveMarker()
         int_marker.header.frame_id = "map"
-        int_marker.name = "start_button"
+        int_marker.name = name
         int_marker.scale = 1.0
+        int_marker.pose.position.y = y
         int_marker.pose.position.z = 1.0
         int_marker.pose.orientation.w = 1.0
 
@@ -57,7 +61,7 @@ class Control(Node):
         box.scale.x = 1.0
         box.scale.y = 0.5
         box.scale.z = 0.2
-        box.color.g = 1.0
+        box.color.r, box.color.g, box.color.b = rgb
         box.color.a = 1.0
 
         label = Marker()
@@ -68,7 +72,7 @@ class Control(Node):
         label.color.b = 1.0
         label.color.a = 1.0
         label.pose.position.z = 0.15
-        label.text = "START"
+        label.text = text
 
         control = InteractiveMarkerControl()
         control.interaction_mode = InteractiveMarkerControl.BUTTON
@@ -85,12 +89,15 @@ class Control(Node):
             return
 
         msg = String()
-        msg.data = "start"
+        msg.data = feedback.marker_name
         self.overview_publisher.publish(msg)
 
-        if self.timer is None:
+        if feedback.marker_name == "start" and self.timer is None:
             self.start_time = self.get_clock().now()
             self.timer = self.create_timer(0.1, self.publish_timer)
+        elif feedback.marker_name == "stop" and self.timer is not None:
+            self.timer.cancel()
+            self.timer = None
 
     def publish_timer(self):
         elapsed = (self.get_clock().now() - self.start_time).nanoseconds / 1e9

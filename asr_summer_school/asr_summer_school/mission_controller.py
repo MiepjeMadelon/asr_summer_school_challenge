@@ -17,7 +17,7 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import (QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile,
                        QoSReliabilityPolicy)
-from std_msgs.msg import Int32MultiArray
+from std_msgs.msg import Int32MultiArray, String
 from tf2_ros import Buffer, TransformListener
 
 
@@ -76,6 +76,7 @@ class MissionController(Node):
         self.create_subscription(OccupancyGrid, '/map', self.map_cb, qos)
         self.create_subscription(PoseArray, '/tag_poses_map', self.tags_cb, 10)
         self.create_subscription(Int32MultiArray, '/tag_ids', self.ids_cb, 10)
+        self.create_subscription(String, '/overview_messages', self.cmd_cb, 10)
 
         self.tf = Buffer()
         self.tf_listener = TransformListener(self.tf, self, spin_thread=True)
@@ -88,7 +89,11 @@ class MissionController(Node):
 
         self.last_ids = []
         self.last_poses = []
+        self.cmd = None
 
+
+    def cmd_cb(self, msg):
+        self.cmd = msg.data
 
     def map_cb(self, msg):
         self.map_msg = msg
@@ -263,6 +268,10 @@ class MissionController(Node):
         self.get_logger().info('Attendo Nav2...')
         self.nav.nav_to_pose_client.wait_for_server()
 
+        self.get_logger().info('Attendo START...')
+        while rclpy.ok() and self.cmd != 'start':
+            time.sleep(0.1)
+
         self.home = self.pose()
         self.t0 = self.get_clock().now()
         self.get_logger().info(
@@ -273,6 +282,21 @@ class MissionController(Node):
             time.sleep(0.1)
             robot = self.pose()
             if robot is None:
+                continue
+
+            if self.cmd == 'stop':
+                self.get_logger().info('STOP')
+                self.nav.cancelTask()
+                self.save()
+                self.state = State.DONE
+                continue
+
+            if self.cmd == 'home' and self.state == State.EXPLORING:
+                self.get_logger().info('RIENTRO (comando HOME)')
+                self.nav.cancelTask()
+                self.goal = None
+                self.state = State.RETURNING
+                self.nav.goToPose(self.home)
                 continue
 
             if self.state == State.EXPLORING:
